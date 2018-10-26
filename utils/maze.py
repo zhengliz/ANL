@@ -13,6 +13,7 @@ def generate_map(maze_size, decimation=0.):
 
     maze = np.ones((maze_size, maze_size))
     for i, j in list(itertools.product(range(m), range(n))):
+
         maze[2*i+1, 2*j+1] = 0
     m = m - 1
     L = np.arange(n+1)
@@ -51,7 +52,7 @@ def generate_map(maze_size, decimation=0.):
         R[i] = i
     return maze
 
-
+# how many pixels until obstacle, including the current position pixel
 def get_depth(map_design, position, orientation):
     m, n = map_design.shape
     depth = 0

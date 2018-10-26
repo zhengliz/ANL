@@ -37,6 +37,12 @@ For evaluating a pre-trained model on maze size 15x15 with maximum episode lengt
 python a3c_main.py --num-processes 0 --evaluate 1 --map-size 15 --max-episode-length 40 --load ./pretrained_models/m15_l40 --test-data ./test_data/m15_n1000.npy
 ```
 
+### Rollout trajectory with pre-trained model
+
+```
+python generate_trajectory.py --num-processes 0 --evaluate 1 --map-size 7 --max-episode-length 30 --load ./pretrained_models/m7_l30 --test-data ./test_data/m7_n1000.npy
+```
+
 ### Generating test data
 The repository contains test data of map-sizes 7, 15 and 21 with 1000 mazes each in the `test_data` directory. 
 

@@ -26,12 +26,12 @@ def transition_function(belief_map, depth, action):
             belief_map = new_belief
     return belief_map
 
-
+# pre-calculate likelihood for all observations x states
 def get_all_likelihoods(map_design):
     num_orientations = 4
-    all_likelihoods = np.zeros(
-        [map_design.shape[0] - 2, num_orientations,
-         map_design.shape[0], map_design.shape[1]])
+    # dim_observation (possible depths), dim_orientation, dim_height, dim_width
+    all_likelihoods = np.zeros([map_design.shape[0] - 2,
+                                num_orientations, map_design.shape[0], map_design.shape[1]])
     for orientation in range(num_orientations):
         for i, element in np.ndenumerate(all_likelihoods[0, orientation]):
             depth = get_depth(map_design, i, orientation)

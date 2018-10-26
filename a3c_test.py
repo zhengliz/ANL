@@ -84,13 +84,13 @@ def test(rank, args, shared_model):
                     "{},".format(time.strftime("%Hh %Mm %Ss", time_elapsed)),
                     "Avg Reward: {0:.3f},".format(np.mean(rewards_list)),
                     "Avg Accuracy: {0:.3f},".format(np.mean(accuracy_list)),
-                    "Best Reward: {0:.3f}".format(best_reward)]))
+                    "Best Reward: {0:.3f}".format(np.max(rewards_list))]))
                 logging.info(" ".join([
                     "Time: {0:0=2d}d".format(time_elapsed.tm_mday-1),
                     "{},".format(time.strftime("%Hh %Mm %Ss", time_elapsed)),
                     "Avg Reward: {0:.3f},".format(np.mean(rewards_list)),
                     "Avg Accuracy: {0:.3f},".format(np.mean(accuracy_list)),
-                    "Best Reward: {0:.3f}".format(best_reward)]))
+                    "Best Reward: {0:.3f}".format(np.max(rewards_list))]))
                 if args.evaluate != 0:
                     return
                 elif (np.mean(rewards_list) >= best_reward):

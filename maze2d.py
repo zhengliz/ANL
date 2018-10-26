@@ -94,7 +94,7 @@ class Maze2D(object):
         # Renormalization of the posterior
         self.posterior /= np.sum(self.posterior)
 
-        # Calculate the reward
+        # Calculate the reward, the Maximum of all beliefs
         reward = self.posterior.max()
 
         self.t += 1
