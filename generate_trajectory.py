@@ -128,6 +128,9 @@ if __name__ == '__main__':
     count = len(positions)
 
     for i in range(count):
-        visualize(map_design, belief=states[i], position=positions[i], orientation=orientations[i], fn='./output/frame_{}.png'.format(i))
+        visualize(map_design, belief=states[i], position=positions[i], orientation=orientations[i],
+                  fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
         if i > 0:
             print('frame {} to {}: {}'.format(i - 1, i, c_actions[actions[i - 1]]))
+
+    images2video('./tmp', './output/video.mp4')
