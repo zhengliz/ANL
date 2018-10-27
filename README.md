@@ -43,6 +43,12 @@ python a3c_main.py --num-processes 0 --evaluate 1 --map-size 15 --max-episode-le
 python generate_trajectory.py --num-processes 0 --evaluate 1 --map-size 7 --max-episode-length 30 --load ./pretrained_models/m7_l30 --test-data ./test_data/m7_n1000.npy
 ```
 
+### Perturb trajectory and rollout
+```
+python perturb_trajectory.py --num-processes 0 --evaluate 1 --map-size 7 --max-episode-length 30 --load ./pretrained_models/m7_l30 --test-data ./test_data/m7_n1000.npy
+```
+
+
 ### Generating test data
 The repository contains test data of map-sizes 7, 15 and 21 with 1000 mazes each in the `test_data` directory. 
 

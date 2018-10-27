@@ -74,10 +74,10 @@ class Maze2D(object):
                                self.orientation)
 
         # Posterior from last step is the prior for this step
-        prior = self.posterior
+        self.prior = self.posterior
 
         # Transform the prior according to the action taken
-        prior = transition_function(prior, curr_depth, action_id)
+        self.prior = transition_function(self.prior, curr_depth, action_id)
 
         # Calculate position and orientation after taking the action
         self.position, self.orientation = get_next_state(
@@ -89,10 +89,14 @@ class Maze2D(object):
         curr_likelihood = self.likelihoods[int(curr_depth) - 1]
 
         # Posterior = Prior * Likelihood
-        self.posterior = np.multiply(curr_likelihood, prior)
+        self.posterior = np.multiply(curr_likelihood, self.prior)
 
         # Renormalization of the posterior
-        self.posterior /= np.sum(self.posterior)
+        denominator = np.sum(self.posterior)
+        if denominator == 0:
+            self.posterior = np.ones_like(self.posterior) / self.posterior.size
+        else:
+            self.posterior /= denominator
 
         # Calculate the reward, the Maximum of all beliefs
         reward = self.posterior.max()
@@ -109,3 +113,26 @@ class Maze2D(object):
                 self.map_design, axis=0)), axis=0)
 
         return self.state, reward, is_final, int(curr_depth)
+
+    def overwrite(self, map_design, position, orientation):
+        self.map_design = map_design
+        self.position = position
+        self.orientation = orientation
+
+        # Pre-compute likelihoods of all observations on the map for efficiency
+        self.likelihoods = get_all_likelihoods(self.map_design)
+
+        # Get current observation and likelihood
+        curr_depth = get_depth(self.map_design, self.position, self.orientation)
+        curr_likelihood = self.likelihoods[int(curr_depth) - 1]
+
+        # Posterior is just the likelihood as prior is uniform
+        self.posterior = curr_likelihood
+
+        # Renormalization of the posterior
+        self.posterior /= np.sum(self.posterior)
+        self.t = 0
+
+        # next state for the policy model
+        self.state = np.concatenate((self.posterior, np.expand_dims(self.map_design, axis=0)), axis=0)
+        return self.state, int(curr_depth)
