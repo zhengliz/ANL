@@ -75,6 +75,74 @@ def perturb_trajectory(idx, args, env, map_design, positions, orientations, stat
     return position_pairs, orientation_pairs, state_pairs, action_pairs
 
 
+def perturb_trajectory_observation(idx, args, env, map_design, positions, orientations, states,
+                                   actions, model=None):
+
+    position_pairs = [(positions[0], positions[0])]
+    orientation_pairs = [(orientations[0], orientations[0])]
+    state_pairs = [(states[0], states[0])]
+    action_pairs = []
+
+    state, depth = env.overwrite(map_design, positions[0], orientations[0])
+
+    assert(np.array_equal(states[0], state))
+
+    episode_length = len(actions)
+    action_hist = deque([3] * args.hist_size, maxlen=args.hist_size)
+
+    for i in range(idx):
+
+        state, reward, done, depth = env.step(actions[i])
+        action_hist.append(actions[i])
+
+        assert(np.array_equal(states[i + 1], state))
+        assert(positions[i + 1] == env.position)
+        assert(orientations[i + 1] == env.orientation)
+
+        position_pairs.append((positions[i + 1], positions[i + 1]))
+        orientation_pairs.append((orientations[i + 1], orientations[i + 1]))
+        state_pairs.append((states[i + 1], states[i + 1]))
+        action_pairs.append((actions[i], actions[i]))
+
+    state, reward, done, depth = env.step(actions[idx], perturb_depth=True)
+    action_hist.append(actions[idx])
+
+    position_pairs.append((positions[idx + 1], positions[idx + 1]))
+    orientation_pairs.append((orientations[idx + 1], orientations[idx + 1]))
+    state_pairs.append((states[idx + 1], state))
+    action_pairs.append((actions[idx], actions[idx]))
+
+    for i in range(idx + 1, episode_length):
+
+        if model is None:
+            state, reward, done, depth = env.step(actions[i])
+            action_hist.append(actions[i])
+
+            position_pairs.append((positions[i + 1], env.position))
+            orientation_pairs.append((orientations[i + 1], env.orientation))
+            state_pairs.append((states[i + 1], state))
+            action_pairs.append((actions[i], actions[i]))
+
+        else:
+            state = torch.from_numpy(state).float()
+            ax = Variable(torch.from_numpy(np.array(action_hist)), volatile=True)
+            dx = Variable(torch.from_numpy(np.array([depth])).long(), volatile=True)
+            tx = Variable(torch.from_numpy(np.array([i + 1])).long(), volatile=True)
+
+            value, logit = model((Variable(state.unsqueeze(0), volatile=True), (ax, dx, tx)))
+            prob = F.softmax(logit, dim=1)
+            action = prob.max(1)[1].data.numpy()[0]
+
+            state, reward, done, depth = env.step(action)
+            action_hist.append(action)
+
+            position_pairs.append((positions[i + 1], env.position))
+            orientation_pairs.append((orientations[i + 1], env.orientation))
+            state_pairs.append((states[i + 1], state))
+            action_pairs.append((actions[i], action))
+
+    return position_pairs, orientation_pairs, state_pairs, action_pairs
+
 
 if __name__ == '__main__':
 
@@ -135,15 +203,20 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(args.load))
     model.eval()
 
+    # # # # # # # # # # # # # # # # # # # # # #
 
-    for maze_id in range(5):
+    flog = open('./output/{}_log_continue.txt'.format(args.load.split('/')[-1]), 'w+')
+    acc_list = []
+    act_list = []
+
+    for maze_id in range(100):
 
         map_design, positions, orientations, states, actions, rewards = generate_trajectory(
             model, args, env, maze_id)
 
         for frame_id in range(0, len(actions) - 1):
 
-            # perturb at frame_id, but follow the same sequence of actions
+            # blind at frame_id, but follow the same sequence of actions
 
             position_pairs, orientation_pairs, state_pairs, action_pairs = perturb_trajectory(
                 frame_id, args, env, map_design, positions, orientations, states, actions)
@@ -159,26 +232,105 @@ if __name__ == '__main__':
                 if i > 0:
                     print('frame {} to {}: before {}, after {}'.format(
                         i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+                    flog.write('frame {} to {}: before {}, after {}\n'.format(
+                        i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
 
             images2video('./tmp', './output/{}_maze{}_frame{}_continue.mp4'.format(
                 args.load.split('/')[-1], maze_id, frame_id))
-
-            # perturb at frame_id, let the agent rollout new sequence of actions from there
-
-            position_pairs, orientation_pairs, state_pairs, action_pairs = perturb_trajectory(
-                frame_id, args, env, map_design, positions, orientations, states, actions, model)
-
-            count = len(position_pairs)
-            clear_folder('./tmp')
-            for i in range(count):
-                visualize_comparison(map_design,
-                                     belief_pair=state_pairs[i],
-                                     position_pair=position_pairs[i],
-                                     orientation_pair=orientation_pairs[i],
-                                     fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
-                if i > 0:
-                    print('frame {} to {}: before {}, after {}'.format(
-                        i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
-
-            images2video('./tmp', './output/{}_maze{}_frame{}_rollout.mp4'.format(
+            flog.write('./output/{}_maze{}_frame{}_continue.mp4\n'.format(
                 args.load.split('/')[-1], maze_id, frame_id))
+
+            # # blind at frame_id, let the agent rollout new sequence of actions from there
+            #
+            # position_pairs, orientation_pairs, state_pairs, action_pairs = perturb_trajectory(
+            #     frame_id, args, env, map_design, positions, orientations, states, actions, model)
+            #
+            # count = len(position_pairs)
+            # clear_folder('./tmp')
+            # for i in range(count):
+            #     visualize_comparison(map_design,
+            #                          belief_pair=state_pairs[i],
+            #                          position_pair=position_pairs[i],
+            #                          orientation_pair=orientation_pairs[i],
+            #                          fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
+            #     if i > 0:
+            #         print('frame {} to {}: before {}, after {}'.format(
+            #             i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+            #         flog.write('frame {} to {}: before {}, after {}\n'.format(
+            #             i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+            #
+            # images2video('./tmp', './output/{}_maze{}_frame{}_rollout.mp4'.format(
+            #     args.load.split('/')[-1], maze_id, frame_id))
+            # flog.write('./output/{}_maze{}_frame{}_rollout.mp4\n'.format(
+            #     args.load.split('/')[-1], maze_id, frame_id))
+
+            # # perturb at frame_id, but follow the same sequence of actions
+            #
+            # position_pairs, orientation_pairs, state_pairs, action_pairs = perturb_trajectory_observation(
+            #     frame_id, args, env, map_design, positions, orientations, states, actions)
+            #
+            # count = len(position_pairs)
+            # clear_folder('./tmp')
+            # for i in range(count):
+            #     visualize_comparison(map_design,
+            #                          belief_pair=state_pairs[i],
+            #                          position_pair=position_pairs[i],
+            #                          orientation_pair=orientation_pairs[i],
+            #                          fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
+            #     if i > 0:
+            #         print('frame {} to {}: before {}, after {}'.format(
+            #             i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+            #         flog.write('frame {} to {}: before {}, after {}\n'.format(
+            #             i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+            #
+            # images2video('./tmp', './output/{}_maze{}_frame{}_perturb_continue.mp4'.format(
+            #     args.load.split('/')[-1], maze_id, frame_id))
+            # flog.write('./output/{}_maze{}_frame{}_perturb_continue.mp4\n'.format(
+            #     args.load.split('/')[-1], maze_id, frame_id))
+
+            # # perturb at frame_id, let the agent rollout new sequence of actions from there
+            #
+            # position_pairs, orientation_pairs, state_pairs, action_pairs = perturb_trajectory_observation(
+            #     frame_id, args, env, map_design, positions, orientations, states, actions, model)
+            #
+            # count = len(position_pairs)
+            # clear_folder('./tmp')
+            # for i in range(count):
+            #     visualize_comparison(map_design,
+            #                          belief_pair=state_pairs[i],
+            #                          position_pair=position_pairs[i],
+            #                          orientation_pair=orientation_pairs[i],
+            #                          fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
+            #     if i > 0:
+            #         print('frame {} to {}: before {}, after {}'.format(
+            #             i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+            #         flog.write('frame {} to {}: before {}, after {}\n'.format(
+            #             i - 1, i, c_actions[action_pairs[i - 1][0]], c_actions[action_pairs[i - 1][1]]))
+            #
+            # images2video('./tmp', './output/{}_maze{}_frame{}_perturb_rollout.mp4'.format(
+            #     args.load.split('/')[-1], maze_id, frame_id))
+            # flog.write('./output/{}_maze{}_frame{}_perturb_rollout.mp4\n'.format(
+            #     args.load.split('/')[-1], maze_id, frame_id))
+
+            for action_before, action_after in action_pairs[frame_id+1:]:
+                if action_before == action_after:
+                    act_list.append(1)
+                else:
+                    act_list.append(0)
+
+            position_after = np.unravel_index(np.argmax(state_pairs[-1][1][:4], axis=None),
+                                              state_pairs[-1][1][:4].shape)
+            position_truth = (orientation_pairs[-1][1], position_pairs[-1][1][0], position_pairs[-1][1][1])
+            if position_after == position_truth:
+                acc_list.append(1)
+                print position_truth, position_after
+                print("correct position")
+                flog.write("correct position\n")
+            else:
+                acc_list.append(0)
+                print position_truth, position_after
+                print("incorrect position")
+                flog.write("incorrect position\n")
+
+    print "accuracy: {}, changed actions: {}".format(np.mean(acc_list), 1-np.mean(act_list))
+    flog.write("accuracy: {}, changed actions: {}\n".format(np.mean(acc_list), 1-np.mean(act_list)))

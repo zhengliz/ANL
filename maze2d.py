@@ -1,4 +1,4 @@
-import os
+import os, random
 import numpy as np
 from utils.maze import *
 from utils.localization import *
@@ -68,7 +68,7 @@ class Maze2D(object):
                                      self.map_design, axis=0)), axis=0)
         return self.state, int(curr_depth)
 
-    def step(self, action_id):
+    def step(self, action_id, perturb_depth=False):
         # Get the observation before taking the action
         curr_depth = get_depth(self.map_design, self.position,
                                self.orientation)
@@ -86,6 +86,11 @@ class Maze2D(object):
         # Get the observation and likelihood after taking the action
         curr_depth = get_depth(
             self.map_design, self.position, self.orientation)
+        if perturb_depth:
+            # randomly perturb the correct depth/observation
+            other_depths = range(1, self.likelihoods.shape[0] + 1)
+            other_depths.remove(curr_depth)
+            curr_depth = random.choice(other_depths)
         curr_likelihood = self.likelihoods[int(curr_depth) - 1]
 
         # Posterior = Prior * Likelihood

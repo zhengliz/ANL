@@ -52,6 +52,11 @@ def generate_trajectory(model, args, env, map_id):
         actions.append(action)
         rewards.append(reward)
 
+        if np.array_equal(env.prior, env.posterior):
+            print("frame not informative")
+        else:
+            print("frame informative")
+
         done = done or episode_length >= args.max_episode_length
 
         idx = np.unravel_index(np.argmax(state[:4], axis=None), state[:4].shape)
@@ -124,26 +129,26 @@ if __name__ == '__main__':
 
     map_design, positions, orientations, states, actions, rewards = generate_trajectory(model, args, env, 0)
 
-    print map_design
+    # print map_design
     clear_folder('./tmp')
 
     count = len(positions)
 
-    # for i in range(count):
-    #     visualize(map_design, belief=states[i], position=positions[i], orientation=orientations[i],
-    #               fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
-    #     if i > 0:
-    #         print('frame {} to {}: {}'.format(i - 1, i, c_actions[actions[i - 1]]))
-    #
-    # images2video('./tmp', './output/video.mp4')
-
     for i in range(count):
-        visualize_comparison(map_design,
-                             belief_pair=(states[i], states[count - 1 - i]),
-                             position_pair=(positions[i], positions[count - 1 - i]),
-                             orientation_pair=(orientations[i], orientations[count - 1 - i]),
-                             fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
+        visualize(map_design, belief=states[i], position=positions[i], orientation=orientations[i],
+                  fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
         if i > 0:
             print('frame {} to {}: {}'.format(i - 1, i, c_actions[actions[i - 1]]))
 
     images2video('./tmp', './output/video.mp4')
+
+    # for i in range(count):
+    #     visualize_comparison(map_design,
+    #                          belief_pair=(states[i], states[count - 1 - i]),
+    #                          position_pair=(positions[i], positions[count - 1 - i]),
+    #                          orientation_pair=(orientations[i], orientations[count - 1 - i]),
+    #                          fn='./tmp/frame_{0:03d}.png'.format(i), idx=i)
+    #     if i > 0:
+    #         print('frame {} to {}: {}'.format(i - 1, i, c_actions[actions[i - 1]]))
+    #
+    # images2video('./tmp', './output/video.mp4')
